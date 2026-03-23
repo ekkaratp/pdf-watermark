@@ -1,7 +1,7 @@
 """
 watermark.py — Add diagonal tiled watermarks to PDF files.
 
-Usage: python watermark.py <pdf_path> <watermark_text>
+Usage: python watermark.py <pdf_path> [watermark_text]
 """
 
 from __future__ import annotations
@@ -25,6 +25,7 @@ WATERMARK_ANGLE = -45
 FONT_SIZE_RATIO = 0.04
 FONT_SIZE_MIN = 36
 TILE_PADDING = 120
+DEFAULT_WATERMARK_TEXT_FILE = Path(__file__).with_name("watermark.txt")
 
 
 # ---------------------------------------------------------------------------
@@ -43,6 +44,31 @@ def validate_inputs(pdf_path: str, watermark_text: str) -> None:
     if not watermark_text.strip():
         print("Error: watermark text must not be empty.", file=sys.stderr)
         sys.exit(1)
+
+
+def resolve_watermark_text(cli_text: str | None) -> str:
+    """Resolve watermark text from CLI first, then fallback to watermark.txt."""
+    if cli_text and cli_text.strip():
+        return cli_text.strip()
+
+    try:
+        if DEFAULT_WATERMARK_TEXT_FILE.is_file():
+            file_text = DEFAULT_WATERMARK_TEXT_FILE.read_text(encoding="utf-8").strip()
+            if file_text:
+                return file_text
+    except OSError:
+        # Fall through to the user-facing validation message below.
+        pass
+
+    print(
+        (
+            "Error: watermark text not provided. "
+            f"Pass <watermark_text> as an argument or add non-empty text to "
+            f"{DEFAULT_WATERMARK_TEXT_FILE.name}."
+        ),
+        file=sys.stderr,
+    )
+    sys.exit(1)
 
 
 def rasterize_page(page) -> Image.Image:
@@ -116,17 +142,22 @@ def main() -> None:
         description="Add a diagonal tiled watermark to every page of a PDF."
     )
     parser.add_argument("pdf_path", help="Path to the input PDF file.")
-    parser.add_argument("watermark_text", help="Text to use as the watermark.")
+    parser.add_argument(
+        "watermark_text",
+        nargs="?",
+        help="Text to use as the watermark. If omitted, reads from watermark.txt.",
+    )
     args = parser.parse_args()
 
-    validate_inputs(args.pdf_path, args.watermark_text)
+    watermark_text = resolve_watermark_text(args.watermark_text)
+    validate_inputs(args.pdf_path, watermark_text)
 
     doc = fitz.open(args.pdf_path)
     output_pages: list[Image.Image] = []
 
     for page in doc:
         page_img = rasterize_page(page)
-        overlay = make_watermark_overlay(page_img.width, page_img.height, args.watermark_text)
+        overlay = make_watermark_overlay(page_img.width, page_img.height, watermark_text)
         output_pages.append(apply_watermark(page_img, overlay))
 
     doc.close()

@@ -26,7 +26,7 @@ pip install -r requirements.txt
 ## Usage
 
 ```bash
-python watermark.py <pdf_path> <watermark_text>
+python watermark.py <pdf_path> [watermark_text]
 ```
 
 **Arguments**
@@ -34,7 +34,13 @@ python watermark.py <pdf_path> <watermark_text>
 | Argument | Description |
 |---|---|
 | `pdf_path` | Full path to the input PDF file |
-| `watermark_text` | Text string to render as the watermark |
+| `watermark_text` (optional) | Text string to render as the watermark. If omitted, the tool reads from `watermark.txt` in the project root |
+
+**Watermark Text Resolution Order**
+
+1. Use `watermark_text` from CLI argument (if provided and non-empty).
+2. Otherwise, read text from `watermark.txt` (must exist and be non-empty).
+3. If neither source provides text, print an error to `stderr` and exit with code `1`.
 
 **Output**
 
@@ -49,6 +55,7 @@ report.pdf → report_watermark.pdf
 ```bash
 python watermark.py /docs/report.pdf "CONFIDENTIAL"
 python watermark.py sample/test.pdf "INTERNAL USE ONLY"
+python watermark.py sample/test.pdf
 ```
 
 ## Error Handling
@@ -57,7 +64,7 @@ python watermark.py sample/test.pdf "INTERNAL USE ONLY"
 |---|---|
 | File not found | Prints error to stderr, exits with code 1 |
 | Not a `.pdf` file | Prints error to stderr, exits with code 1 |
-| Empty watermark text | Prints error to stderr, exits with code 1 |
+| Empty watermark text passed via argument and `watermark.txt` is missing/empty | Prints error to stderr, exits with code 1 |
 
 ## Configuration
 
@@ -78,6 +85,7 @@ All visual parameters are module-level constants in `watermark.py`:
 ```
 Input PDF
   │
+  ├─ resolve_watermark_text() — use CLI text, otherwise fallback to watermark.txt
   ├─ validate_inputs()        — path exists, is PDF, text non-empty
   ├─ fitz.open()              — open with PyMuPDF
   │
@@ -97,6 +105,7 @@ The tiling strategy uses an oversized square canvas (side = page diagonal) to en
 ```
 pdf-watermark/
 ├── watermark.py       # Single-file implementation (~150 LOC)
+├── watermark.txt      # Optional default watermark text when CLI arg is omitted
 ├── requirements.txt   # PyMuPDF + Pillow
 ├── sample/
 │   └── test.pdf       # Test file for manual verification
